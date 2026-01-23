@@ -1,18 +1,47 @@
-# 🧾 Auditoria
+# 🧾 Auditoria (NF-e / CT-e) — XML x Excel
 
 ## 📌 Sobre o Projeto
-**Auditoria** é um projeto desenvolvido para auxiliar no processo de auditoria de dados, permitindo análise, validação e organização de informações de forma automatizada e confiável.
+O **Auditoria** é uma ferramenta em **Python** que realiza a auditoria de documentos fiscais **NF-e** e **CT-e** a partir de arquivos **XML**, comparando os valores com uma planilha **Excel** (abas por mês/ano) e gerando um **relatório final em Excel (.xlsx)** com status de conferência.
 
-O sistema foi pensado para facilitar conferências, identificar inconsistências e gerar relatórios que apoiem processos administrativos e fiscais.
+O objetivo é facilitar conferências fiscais/administrativas, identificando diferenças de **volume** e **valores líquidos** (descontando impostos como ICMS, PIS e COFINS).
 
 ---
 
-## 🚀 Funcionalidades
-- 📂 Leitura e processamento de arquivos
-- 🔍 Validação e auditoria de dados
-- 📊 Geração de relatórios
-- 🧮 Cálculos automáticos
-- 🐳 Suporte à execução com Docker
+## 🚀 O que o sistema faz
+1. Você seleciona os **XMLs** (NF-e e/ou CT-e)
+2. Você seleciona o **Excel** base (com abas do ano/mês alvo)
+3. O sistema:
+   - Lê os XMLs e extrai: **nota**, **volume**, **bruto**, **ICMS**, **PIS**, **COFINS**
+   - Lê o Excel e encontra a linha correspondente pela **NF**
+   - Calcula o **líquido** e compara com o Excel
+   - Gera um relatório em `.xlsx` com:
+     - Diferença de volume
+     - Diferença financeira (R$)
+     - Status (**OK / ERRO / não encontrado / erro de parse**)
+     - Formatação com cores (verde/vermelho)
+
+---
+
+## ✅ Funcionalidades
+- 📂 Leitura de XMLs **NF-e** e **CT-e**
+- 🧠 Identificação automática do tipo (NF-e / CT-e)
+- 🧾 Extração de:
+  - Nota (nNF / nCT)
+  - Volume (M3/NM3 ou fallback no XML)
+  - Bruto (vNF / vTPrest)
+  - ICMS, PIS, COFINS
+- 📊 Leitura de Excel com abas filtradas por:
+  - `ANO_ALVO` (ex: `"25"`)
+  - `MESES_ALVO` (ex: `["OUT", "NOV", "DEZ"]`)
+- 🧮 Cálculo do **Líquido** (Bruto - impostos válidos)
+- 🧾 Ajuste especial para **CT-e** quando não houver PIS/COFINS no XML:
+  - usa os valores do Excel para comparar corretamente
+- 📄 Geração automática de relatório `.xlsx` com:
+  - Cabeçalho formatado
+  - Linhas verdes para **OK**
+  - Linhas vermelhas para **ERRO**
+  - Formatação numérica (R$ e volumes)
+- 🖥️ Interface simples por janelas (Tkinter: seleção de arquivos)
 
 ---
 
@@ -20,66 +49,91 @@ O sistema foi pensado para facilitar conferências, identificar inconsistências
 - **Python**
 - **Pandas**
 - **Tkinter**
-- **OpenPyXL**
-- **Docker**
-- **Git**
+- **ElementTree (xml.etree.ElementTree)**
+- **OpenPyXL** (formatação do relatório Excel)
+- **Regex (re)**
 
 ---
 
-## 📂 Estrutura do Projeto
-```text
-Auditoria/
-├── Auditoria.py
-├── requirements.txt
-├── Dockerfile
-├── README.md
-└── .gitignore
- ⚙️ Pré-requisitos
+## ⚙️ Configurações Importantes
+No topo do código existem filtros de abas do Excel:
 
-Antes de iniciar, você precisa ter instalado:
+```python
+ANO_ALVO = "25"
+MESES_ALVO = ["OUT", "NOV", "DEZ"]
+✅ O sistema só processa abas que contenham:
 
-✔️ Git
+o ANO_ALVO no nome (ex: 2025 OUT)
 
-✔️ Python 3.10+
+e algum dos meses em MESES_ALVO
 
-✔️ Docker (opcional)
+📥 Como usar
+1) Instalar dependências
+pip install pandas openpyxl
+O tkinter geralmente já vem com o Python no Windows.
 
-📥 Clonando o Repositório
-git clone https://github.com/jleandromorais/Auditoria.git
-cd Auditoria
-
-▶️ Executando o Projeto
-🔹 Execução Local
-pip install -r requirements.txt
+2) Executar
 python Auditoria.py
+3) Fluxo na tela
+Selecione os XMLs (NF-e / CT-e)
 
-🔹 Execução com Docker
-docker build -t auditoria .
-docker run auditoria
+Selecione o arquivo Excel (.xlsx)
 
-🧪 Testes
+O relatório será gerado automaticamente e salvo em:
 
-Atualmente, o projeto não possui testes automatizados.
+Downloads/Auditoria_XML_<hora>.xlsx
 
-📦 Possíveis Melhorias Futuras
+📄 Saída (Relatório)
+O relatório final contém colunas como:
 
-Implementação de testes automatizados
+Arquivo, Tipo, Mês, Nota
 
-Exportação de relatórios em PDF
+Vol XML / Vol Excel / Diff Vol
 
-Interface gráfica aprimorada
+Bruto XML, ICMS XML, PIS, COFINS
 
-Logs detalhados de auditoria
+ICMS Excel, PIS Excel, COFINS Excel
 
-Integração com banco de dados
+Líq XML (Calc) / Líq Excel / Diff R$
 
-🤝 Contribuindo
+Status e Observações
 
-Faça um fork do projeto
+✅ Status possíveis
+OK ✅ → valores dentro da tolerância
 
-Crie uma branch (feature/nova-funcionalidade)
+ERRO VOL ❌ → volume divergente
 
-Commit suas alterações
+ERRO VALOR ❌ → valor líquido divergente
 
-Abra um Pull Request
+ERRO VOL+VALOR ❌ → ambos divergentes
 
+Ñ ENCONTRADO ⚠️ → não achou a NF no Excel
+
+ERRO PARSE ❌ → falha ao ler o XML
+
+🎯 Regras de tolerância
+NF-e: tolerância financeira de R$ 5,00
+
+CT-e: tolerância financeira de R$ 50,00
+
+Volume: diferença < 1.0 (quando houver volume no Excel)
+
+📌 Possíveis Melhorias Futuras
+Barra de progresso (UI)
+
+Exportação de relatório em PDF
+
+Log detalhado de processamento
+
+Processamento por pasta (selecionar diretório de XMLs)
+
+Configurar tolerâncias pela interface
+
+Suporte a mais layouts de planilhas
+
+📄 Licença
+Este projeto está sob a licença MIT.
+
+👤 Autor
+Leandro Morais
+GitHub: https://github.com/jleandromorais
